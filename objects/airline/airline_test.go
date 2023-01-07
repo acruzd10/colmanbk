@@ -42,7 +42,7 @@ func chkAirline(t *testing.T, airlineInst *Airline) {
 func testSetup(t *testing.T) {
 	initDyno()
 
-	objectInst, _ := GetAirlineByCode(codeConst)
+	objectInst, _ := GetByCode(codeConst)
 
 	if len(objectInst.Code) > 0 {
 		objectInst.Delete()
@@ -73,7 +73,7 @@ func TestAirplane(t *testing.T) {
 
 	t.Log("Put check")
 	airlineInst.Put()
-	airlineRetrInst, getRetrErr := GetAirlineByCode(codeConst)
+	airlineRetrInst, getRetrErr := GetByCode(codeConst)
 	if getRetrErr != nil {
 		t.Errorf("Error in get after putting airline\n")
 	}
@@ -82,7 +82,7 @@ func TestAirplane(t *testing.T) {
 	t.Log("Update, put again and retrieve")
 	airlineRetrInst.Name = nameNewConst
 	airlineRetrInst.Put()
-	airlineUpdtInst, getUpdtErr := GetAirlineByCode(codeConst)
+	airlineUpdtInst, getUpdtErr := GetByCode(codeConst)
 	if getUpdtErr != nil {
 		t.Errorf("Error in get after updating airline\n")
 	}
@@ -90,7 +90,7 @@ func TestAirplane(t *testing.T) {
 
 	t.Log("Delete and check it's gone!")
 	airlineUpdtInst.Delete()
-	airlineEmptyInst, getEmptyErr := GetAirlineByCode(codeConst)
+	airlineEmptyInst, getEmptyErr := GetByCode(codeConst)
 	if getEmptyErr == nil {
 		t.Errorf("Error for unexistent object not produced when expected. Perhaps the object still exists?\n")
 	}

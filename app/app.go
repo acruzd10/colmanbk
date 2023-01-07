@@ -5,11 +5,13 @@ import (
 	airplaneapi "colmanback/api_v1.0/airplane"
 	airplanemakeapi "colmanback/api_v1.0/airplanemake"
 	countryapi "colmanback/api_v1.0/country"
+	modelmakeapi "colmanback/api_v1.0/modelmake"
 	"colmanback/db/dyno"
 	airlineobject "colmanback/objects/airline"
 	airplaneobject "colmanback/objects/airplane"
 	airplanemakeobject "colmanback/objects/airplanemake"
 	countryobject "colmanback/objects/country"
+	modelmakeobject "colmanback/objects/modelmake"
 	"log"
 	"net/http"
 
@@ -35,6 +37,7 @@ func (appInst *App) initConn() {
 	airplanemakeobject.InitConn()
 	airplaneobject.InitConn()
 	countryobject.InitConn()
+	modelmakeobject.InitConn()
 }
 
 //----------------------------------------------------------------------------------------
@@ -45,6 +48,7 @@ func (appInst *App) initRoutes() *mux.Router {
 	airplanemakeapi.InitRouter(router)
 	airplaneapi.InitRouter(router)
 	countryapi.InitRouter(router)
+	modelmakeapi.InitRouter(router)
 
 	return router
 }

@@ -118,7 +118,7 @@ func GetCacheMap(airlineList []*Airline) []db.CacheMapElement {
 }
 
 //----------------------------------------------------------------------------------------
-func GetAirlineList() ([]*Airline, error) {
+func GetList() ([]*Airline, error) {
 	return AdapterInst.GetObjectList()
 }
 
@@ -128,7 +128,7 @@ func getAirlineByCodeIntl(code string) (*Airline, error) {
 }
 
 //----------------------------------------------------------------------------------------
-func GetAirlineByCode(code string) (*Airline, error) {
+func GetByCode(code string) (*Airline, error) {
 	var searchErr error = nil
 	airlineInst, apiErr := getAirlineByCodeIntl(code)
 
