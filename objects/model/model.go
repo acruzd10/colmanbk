@@ -3,14 +3,12 @@ package model
 import (
 	"colmanback/api_util"
 	"colmanback/db"
+	"colmanback/db/dyno"
 	"colmanback/objects"
 	"colmanback/objects/airline"
 	"colmanback/objects/airplane"
-	"colmanback/objects/country"
 	"colmanback/objects/modelmake"
-	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -34,73 +32,15 @@ type Model struct {
 	IsCargo         bool               `json:"isCargo"`
 	IsOldLivery     bool               `json:"isOldLivery"`
 	IsSpecialLivery bool               `json:"isSpecialLivery"`
-	PictureList     []string           `json:"pictureList"`
+	PictureList     []string           `json:"pictureList,omitempty"`
 
 	//Reference Instances
-	ModelMakeInst *modelmake.ModelMake
-	AirlineInst   *airline.Airline
-	AirplaneInst  *airplane.Airplane
-}
-
-type ModelIntl struct {
-	Code               string   `json:"code"`
-	ModelMake          string   `json:"modelMake"`
-	ModelMakeName      string   `json:"modelMakeName"`
-	Airline            string   `json:"airline"`
-	AirlineName        string   `json:"airlineName"`
-	AirlineCountry     string   `json:"country"`
-	AirlineCountryName string   `json:"countryName"`
-	Airplane           string   `json:"airplane"`
-	AirplaneName       string   `json:"airplaneName"`
-	Notes              string   `json:"notes"`
-	Scale              string   `json:"scale"`
-	Reg                string   `json:"reg"`
-	IsCargo            bool     `json:"isCargo"`
-	IsOldLivery        bool     `json:"isOldLivery"`
-	IsSpecialLivery    bool     `json:"isSpecialLivery"`
-	PictureList        []string `json:"pictureList"`
+	ModelMakeInst *modelmake.ModelMake `json:"modelMakeDetails,omitempty"`
+	AirlineInst   *airline.Airline     `json:"airlineDetails,omitempty"`
+	AirplaneInst  *airplane.Airplane   `json:"airplaneDetails,omitempty"`
 }
 
 var AdapterInst db.Adapter[*Model]
-
-//----------------------------------------------------------------------------------------
-func (modelInst *Model) getModelIntl() *ModelIntl {
-	modelIntlInst := ModelIntl{}
-
-	modelInst.InitRefObjs()
-	modelIntlInst.Code = modelInst.Code
-	modelIntlInst.ModelMake = modelInst.ModelMake
-	modelIntlInst.Airline = modelInst.Airline
-	modelIntlInst.Airplane = modelInst.Airplane
-	modelIntlInst.Scale = string(modelInst.Scale)
-	modelIntlInst.Reg = modelInst.Reg
-	modelIntlInst.Notes = modelInst.Notes
-	modelIntlInst.IsCargo = modelInst.IsCargo
-	modelIntlInst.IsOldLivery = modelInst.IsOldLivery
-	modelIntlInst.IsSpecialLivery = modelInst.IsSpecialLivery
-	modelIntlInst.PictureList = modelInst.PictureList
-
-	if len(modelIntlInst.ModelMake) > 0 {
-		modelIntlInst.ModelMakeName = modelInst.ModelMakeInst.Name
-	}
-
-	if len(modelIntlInst.Airline) > 0 {
-		modelIntlInst.AirlineName = modelInst.AirlineInst.Name
-		modelIntlInst.AirlineCountry = modelInst.AirlineInst.Country
-		if len(modelIntlInst.AirlineCountry) > 0 {
-			countryInst, err := country.GetCountryByISO(modelIntlInst.AirlineCountry)
-			if err == nil {
-				modelIntlInst.AirlineCountryName = countryInst.Name
-			}
-		}
-	}
-
-	if len(modelIntlInst.Airplane) > 0 {
-		modelIntlInst.AirplaneName = modelInst.AirplaneInst.Name
-	}
-
-	return &modelIntlInst
-}
 
 //----------------------------------------------------------------------------------------
 func (modelInst *Model) makeCode() {
@@ -133,6 +73,7 @@ func (modelInst *Model) FromJson(jsonInst []byte) {
 	modelInst.Reg = strings.ToUpper(modelInst.Reg)
 }
 
+//----------------------------------------------------------------------------------------
 func (modelInst *Model) ToString() string {
 	str := fmt.Sprintf(`
 	----------------------
@@ -204,7 +145,19 @@ func (modelInst *Model) Delete() {
 
 //----------------------------------------------------------------------------------------
 func (modelInst *Model) Put() {
-	AdapterInst.PutObject(modelInst)
+	var modelInstPut Model = *modelInst
+
+	//Ensure that redundant ref info is not persisted.
+	modelInstPut.AirlineInst = nil
+	modelInstPut.AirplaneInst = nil
+	modelInstPut.ModelMakeInst = nil
+
+	if len(modelInstPut.Code) == 0 {
+		modelInstPut.makeCode()
+		modelInst.Code = modelInstPut.Code
+	}
+
+	AdapterInst.PutObject(&modelInstPut)
 }
 
 //----------------------------------------------------------------------------------------
@@ -213,55 +166,33 @@ func (airlineInst *Model) WriteObject(writer http.ResponseWriter, request *http.
 }
 
 //----------------------------------------------------------------------------------------
-func (modelInst *Model) ToJSON() []byte {
-	out, err := json.MarshalIndent(modelInst, db.JSON_PREFIX, db.JSON_INDENT)
-
-	if err != nil {
-		log.Fatalf("Error marshalling model with code %s. Error:%s", modelInst.Code, err)
-		return nil
-	}
-
-	return out
-}
-
-//----------------------------------------------------------------------------------------
-func (modelInst *Model) PutModel() []byte {
-	modelInst.makeCode()
-	AdapterInst.PutObject(modelInst)
-
-	modelInstIntl := modelInst.getModelIntl()
-	out, err := json.MarshalIndent(modelInstIntl, db.JSON_PREFIX, db.JSON_INDENT)
-
-	if err != nil {
-		log.Fatalf("Error marshalling model with code %s. Error:%s", modelInst.Code, err)
-		return nil
-	}
-
-	return out
-}
-
-//----------------------------------------------------------------------------------------
 func GetList() ([]*Model, error) {
-	return AdapterInst.GetObjectList()
-}
+	objectList, err := AdapterInst.GetObjectList()
 
-//----------------------------------------------------------------------------------------
-func GetModelByCode(code string) (*Model, error) {
-	return AdapterInst.GetObjectByCode(code)
-}
-
-//----------------------------------------------------------------------------------------
-func GetModelListExtendedAPI(writer http.ResponseWriter) {
-	var modelIntlList []*ModelIntl = []*ModelIntl{}
-	modelList, _ := GetList()
-
-	for _, model := range modelList {
-		modelIntlList = append(modelIntlList, model.getModelIntl())
-	}
-
-	out, err := json.MarshalIndent(modelIntlList, db.JSON_PREFIX, db.JSON_INDENT)
 	if err == nil {
-		writer.Header().Set("Content-Type", "application/json")
-		writer.Write(out)
+		for index, objectInst := range objectList {
+			objectInst.InitRefObjs()
+			objectList[index] = objectInst
+		}
 	}
+
+	return objectList, err
+}
+
+//----------------------------------------------------------------------------------------
+func GetByCode(code string) (*Model, error) {
+	objectInst, err := AdapterInst.GetObjectByCode(code)
+	if err == nil {
+		objectInst.InitRefObjs()
+	}
+
+	return objectInst, err
+}
+
+//----------------------------------------------------------------------------------------
+func InitConn() {
+	dynoInstModel := &dyno.Dyno[*Model]{}
+	dynoInstModel.SetSortName("picture")
+	dynoInstModel.Config("model", "code", true, ObjectFactory, nil)
+	AdapterInst = dynoInstModel
 }
