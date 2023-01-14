@@ -76,7 +76,7 @@ func chkModel(t *testing.T, objectInst *Model, emptyCode bool) {
 	test_util.CheckField(t, "isOldLivery", boolToString(isOldLiveryConst), boolToString(objectInst.IsOldLivery))
 	test_util.CheckField(t, "isSpecialLivery", boolToString(isSpecialLiveryConst), boolToString(objectInst.IsSpecialLivery))
 
-	if emptyCode != (len(objectInst.Code) != 0) {
+	if emptyCode != (len(objectInst.Code) == 0) {
 		t.Errorf("The value of the code %s is not as expected.", objectInst.Code)
 	}
 }
@@ -151,17 +151,17 @@ func TestModel(t *testing.T) {
 	objectInstLoad.FromJson([]byte(jsonString))
 
 	t.Log("Initial check")
-	chkModel(t, objectInstLoad, true)
+	chkModel(t, objectInstLoad, false)
 
 	t.Log("Put check")
 	objectInstLoad.Put()
-	chkModel(t, objectInstLoad, true)
+	chkModel(t, objectInstLoad, false)
 
 	modelRetrInst, getRetrErr := GetByCode(objectInstLoad.Code)
 	if getRetrErr != nil {
 		t.Errorf("Error in get after putting model. %v\n", getRetrErr)
 	}
-	chkModel(t, modelRetrInst, true)
+	chkModel(t, modelRetrInst, false)
 
 	t.Log("Update, put again and retrieve")
 	modelRetrInst.Reg = regNewConst
@@ -183,4 +183,3 @@ func TestModel(t *testing.T) {
 	testTearDown(t)
 	t.Log("Test for model has finished.")
 }
-``

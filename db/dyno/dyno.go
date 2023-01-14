@@ -159,12 +159,20 @@ func (dynoInst *Dyno[K]) SetSortName(sortName string) {
 
 //----------------------------------------------------------------------------------------
 func (dynoInst *Dyno[K]) DeleteObjectByCode(codeValue string) error {
-	input := &dynamodb.DeleteItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			dynoInst.codeName: {
-				S: aws.String(codeValue),
-			},
+	keyMap := map[string]*dynamodb.AttributeValue{
+		dynoInst.codeName: {
+			S: aws.String(codeValue),
 		},
+	}
+
+	if dynoInst.sortName != "" {
+		var sortAttribute = dynamodb.AttributeValue{}
+		sortAttribute.S = aws.String(codeValue)
+		keyMap[dynoInst.sortName] = &sortAttribute
+	}
+
+	input := &dynamodb.DeleteItemInput{
+		Key:       keyMap,
 		TableName: aws.String(dynoInst.tableName),
 	}
 
@@ -267,6 +275,12 @@ func (dynoInst *Dyno[K]) GetObjectByCode(codeValue string) (K, error) {
 //----------------------------------------------------------------------------------------
 func (dynoInst *Dyno[K]) PutObject(objectInst K) error {
 	objectMarshalled, err := dynamodbattribute.MarshalMap(objectInst)
+
+	if dynoInst.sortName != "" {
+		var sortAttribute = dynamodb.AttributeValue{}
+		sortAttribute.S = aws.String(objectInst.CodeValue())
+		objectMarshalled[dynoInst.sortName] = &sortAttribute
+	}
 
 	if err != nil {
 		return fmt.Errorf("got error marshalling map for object with key = %s. Error: %s", objectInst.CodeValue(), err)

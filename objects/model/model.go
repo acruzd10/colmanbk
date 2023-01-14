@@ -9,6 +9,7 @@ import (
 	"colmanback/objects/airplane"
 	"colmanback/objects/modelmake"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -140,7 +141,10 @@ func (modelInst *Model) InitRefObjs() {
 
 //----------------------------------------------------------------------------------------
 func (modelInst *Model) Delete() {
-	AdapterInst.DeleteObject(modelInst)
+	err := AdapterInst.DeleteObject(modelInst)
+	if err != nil {
+		log.Fatalf("An error has occurred while deleting model with code %s. Error: %v\n", modelInst.Code, err)
+	}
 }
 
 //----------------------------------------------------------------------------------------
@@ -157,7 +161,10 @@ func (modelInst *Model) Put() {
 		modelInst.Code = modelInstPut.Code
 	}
 
-	AdapterInst.PutObject(&modelInstPut)
+	err := AdapterInst.PutObject(&modelInstPut)
+	if err != nil {
+		log.Fatalf("An error has occurred while putting model with code %s. Error: %v\n", modelInst.Code, err)
+	}
 }
 
 //----------------------------------------------------------------------------------------
