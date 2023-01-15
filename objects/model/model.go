@@ -4,14 +4,19 @@ import (
 	"colmanback/api_util"
 	"colmanback/db"
 	"colmanback/db/dyno"
+	"colmanback/db/s3"
 	"colmanback/objects"
 	"colmanback/objects/airline"
 	"colmanback/objects/airplane"
 	"colmanback/objects/modelmake"
 	"fmt"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -19,7 +24,8 @@ const (
 )
 
 type Model struct {
-	Code string `json:"code"`
+	Code    string `json:"code"`
+	Picture string `json:"picture",omitempty`
 
 	//Foreign Keys
 	ModelMake string `json:"modelMake"`
@@ -42,6 +48,7 @@ type Model struct {
 }
 
 var AdapterInst db.Adapter[*Model]
+var FileInst *s3.S3Adapter
 
 //----------------------------------------------------------------------------------------
 func (modelInst *Model) makeCode() {
@@ -60,7 +67,11 @@ func (modelInst *Model) CodeValue() string {
 
 //----------------------------------------------------------------------------------------
 func (modelInst *Model) SortValue() string {
-	return ""
+	if len(modelInst.Picture) > 0 {
+		return modelInst.Picture
+	} else {
+		return modelInst.Code
+	}
 }
 
 //----------------------------------------------------------------------------------------
@@ -140,8 +151,25 @@ func (modelInst *Model) InitRefObjs() {
 }
 
 //----------------------------------------------------------------------------------------
+func (modelInst *Model) LoadPictures() {
+	pictureList, err := AdapterInst.GetSortKeyList(modelInst.Code)
+
+	modelInst.PictureList = pictureList
+	if err != nil {
+		log.Fatalf("An error has occurred while retrieving the pictures for a model with code %s. Error: %v", modelInst.Code, err)
+	}
+}
+
+//----------------------------------------------------------------------------------------
 func (modelInst *Model) Delete() {
-	err := AdapterInst.DeleteObject(modelInst)
+	var err error
+
+	if len(modelInst.Picture) == 0 {
+		err = AdapterInst.DeleteObject(modelInst)
+	} else {
+		err = AdapterInst.DeleteObjectByCodeAndSort(modelInst.Code, modelInst.Picture)
+	}
+
 	if err != nil {
 		log.Fatalf("An error has occurred while deleting model with code %s. Error: %v\n", modelInst.Code, err)
 	}
@@ -202,4 +230,48 @@ func InitConn() {
 	dynoInstModel.SetSortName("picture")
 	dynoInstModel.Config("model", "code", true, ObjectFactory, nil)
 	AdapterInst = dynoInstModel
+
+	fileInstModel := &s3.S3Adapter{}
+	fileInstModel.Config("colman-pics", 1000)
+	FileInst = fileInstModel
 }
+
+//----------------------------------------------------------------------------------------
+func AddModelPicture(file multipart.File, modelCodeList []string) ([]*Model, error) {
+	nowTime := time.Now().Format(time.RFC3339)
+	uuidName := uuid.New().String()
+	fileName := nowTime + "#" + uuidName
+
+	var modelInst *Model
+	var intlErr error
+	modelList := []*Model{}
+
+	response, err := FileInst.AddFile(fileName, file)
+	if err == nil {
+		if len(response.FileLocation) != 0 {
+			for _, code := range modelCodeList {
+				modelInst = &Model{}
+				modelInst.Code = code
+				modelInst.Picture = response.FileLocation
+				modelInst.Put()
+
+				modelInst, intlErr = GetByCode(code)
+				if intlErr == nil {
+					modelInst.PictureList = append(modelInst.PictureList, response.FileLocation)
+					modelList = append(modelList, modelInst)
+				}
+			}
+		}
+	} else {
+		log.Printf("Error whilst saving image for models %v. Error: %v", modelCodeList, err)
+	}
+
+	return modelList, err
+}
+
+/*
+//----------------------------------------------------------------------------------------
+func DeleteModelPicture(fileName string) ([]*Model, error) {
+
+}
+*/

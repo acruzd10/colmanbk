@@ -158,7 +158,7 @@ func (dynoInst *Dyno[K]) SetSortName(sortName string) {
 }
 
 //----------------------------------------------------------------------------------------
-func (dynoInst *Dyno[K]) DeleteObjectByCode(codeValue string) error {
+func (dynoInst *Dyno[K]) DeleteObjectByCodeAndSort(codeValue string, sortValue string) error {
 	keyMap := map[string]*dynamodb.AttributeValue{
 		dynoInst.codeName: {
 			S: aws.String(codeValue),
@@ -167,7 +167,7 @@ func (dynoInst *Dyno[K]) DeleteObjectByCode(codeValue string) error {
 
 	if dynoInst.sortName != "" {
 		var sortAttribute = dynamodb.AttributeValue{}
-		sortAttribute.S = aws.String(codeValue)
+		sortAttribute.S = aws.String(sortValue)
 		keyMap[dynoInst.sortName] = &sortAttribute
 	}
 
@@ -178,7 +178,7 @@ func (dynoInst *Dyno[K]) DeleteObjectByCode(codeValue string) error {
 
 	_, err := Conn.DeleteItem(input)
 	if err != nil {
-		return fmt.Errorf("cannot delete object with %s %s. Err: %s", dynoInst.codeName, codeValue, err)
+		return fmt.Errorf("cannot delete object with %s %s, %s %s. Err: %s", dynoInst.codeName, codeValue, dynoInst.sortName, sortValue, err)
 	} else {
 		if dynoInst.keepCache {
 			delete(dynoInst.cache, codeValue)
@@ -189,8 +189,53 @@ func (dynoInst *Dyno[K]) DeleteObjectByCode(codeValue string) error {
 }
 
 //----------------------------------------------------------------------------------------
+func (dynoInst *Dyno[K]) DeleteObjectByCode(codeValue string) error {
+	return dynoInst.DeleteObjectByCodeAndSort(codeValue, codeValue)
+}
+
+//----------------------------------------------------------------------------------------
+func (dynoInst *Dyno[K]) GetSortKeyList(codeValue string) ([]string, error) {
+	var input dynamodb.QueryInput
+	keyList := []string{}
+
+	if dynoInst.sortName == "" {
+		return keyList, fmt.Errorf("adapter for %s does not have a sort name set", dynoInst.tableName)
+	}
+
+	input.ExpressionAttributeValues = map[string]*dynamodb.AttributeValue{
+		":partitionKey": {
+			S: aws.String(codeValue),
+		},
+	}
+
+	input.KeyConditionExpression = aws.String(dynoInst.codeName + " = :partitionKey AND (" + dynoInst.sortName + " < :partitionKey OR " + dynoInst.sortName + " > :partitionKey)")
+	input.ProjectionExpression = aws.String(dynoInst.sortName)
+	input.TableName = aws.String(dynoInst.tableName)
+
+	result, err := Conn.Query(&input)
+
+	if err != nil {
+		log.Fatalf("Error retrieving list of sort keys from table %s for key %s. Error: %v", dynoInst.tableName, codeValue, err)
+	} else {
+		for _, item := range result.Items {
+			keyList = append(keyList, item[dynoInst.sortName].GoString())
+		}
+	}
+
+	return keyList, err
+}
+
+//----------------------------------------------------------------------------------------
 func (dynoInst *Dyno[K]) DeleteObject(objectInst K) error {
-	return dynoInst.DeleteObjectByCode(objectInst.CodeValue())
+	var err error
+
+	if dynoInst.sortName == "" {
+		err = dynoInst.DeleteObjectByCode(objectInst.CodeValue())
+	} else {
+		err = dynoInst.DeleteObjectByCodeAndSort(objectInst.CodeValue(), objectInst.SortValue())
+	}
+
+	return err
 }
 
 //----------------------------------------------------------------------------------------
@@ -296,7 +341,7 @@ func (dynoInst *Dyno[K]) PutObject(objectInst K) error {
 		return fmt.Errorf("got error calling PutItem for object with key = %s into %s. Error: %s", objectInst.CodeValue(), dynoInst.tableName, err)
 	}
 
-	if dynoInst.keepCache {
+	if dynoInst.keepCache && (objectInst.SortValue() == "" || objectInst.CodeValue() == objectInst.SortValue()) {
 		dynoInst.cache[objectInst.CodeValue()] = objectInst
 	}
 

@@ -25,11 +25,13 @@ type Adapter[K objects.Object] interface {
 
 	//Raw Operations
 	DeleteObjectByCode(codeValue string) error
+	DeleteObjectByCodeAndSort(codeValue string, sortValue string) error
 	DeleteObject(objectInst K) error
 	GetObjectList() ([]K, error)
 	GetObjectByCode(codeValue string) (K, error)
 	GetObjectByCodeJSON(codeValue string) ([]byte, error)
 	GetObjectListJSON() ([]byte, error)
+	GetSortKeyList(codeValue string) ([]string, error)
 	PutObject(objectInst K) error
 	PutObjectList(objectList []K)
 	ResetCache()
