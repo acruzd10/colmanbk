@@ -57,7 +57,7 @@ func TestAirplane(t *testing.T) {
 	}
 
 	//Create airline from JSON
-	airlineInst := AirlineFactory()
+	airlineInst := ObjectFactory()
 	jsonString := fmt.Sprintf("{\"code\":\"%s\", \"name\":\"%s\", \"iata\":\"%s\", \"icao\":\"%s\", \"callsign\":\"%s\", \"country\":\"%s\"}",
 		codeConst,
 		nameConst,

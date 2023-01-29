@@ -1,21 +1,21 @@
-package airline
+package model
 
 import (
 	"colmanback/api_util"
-	"colmanback/objects/airline"
+	"colmanback/objects/model"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
 
 const (
-	ObjectID    = "airlineID"
-	ApiURL      = "/api/v1/airline"
+	ObjectID    = "modelID"
+	ApiURL      = "/api/v1/model"
 	BaseURL     = ""
 	ResourceURL = "/{" + ObjectID + "}"
 )
 
-var apiInst api_util.GenAPI[*airline.Airline]
+var apiInst api_util.GenAPI[*model.Model]
 
 //----------------------------------------------------------------------------------------
 func InitRouter(router *mux.Router) {
@@ -30,8 +30,8 @@ func InitRouter(router *mux.Router) {
 	apiInst.BaseURL = BaseURL
 	apiInst.ObjectID = ObjectID
 
-	apiInst.Constructor = airline.ObjectFactory
-	apiInst.GetObjectByCode = airline.GetByCode
-	apiInst.GetObjectList = airline.GetList
-	apiInst.DeleteObjectByCode = airline.AdapterInst.DeleteObjectByCode
+	apiInst.Constructor = model.ObjectFactory
+	apiInst.GetObjectByCode = model.GetByCode
+	apiInst.GetObjectList = model.GetList
+	apiInst.DeleteObjectByCode = model.AdapterInst.DeleteObjectByCode
 }

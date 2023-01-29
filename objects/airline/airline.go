@@ -98,7 +98,7 @@ func (airlineInst *Airline) Put() {
 }
 
 //----------------------------------------------------------------------------------------
-func AirlineFactory() *Airline {
+func ObjectFactory() *Airline {
 	var airlineInst Airline = Airline{}
 
 	return &airlineInst
@@ -195,6 +195,6 @@ func LoadAirlineList(airlineList []Airline) {
 //----------------------------------------------------------------------------------------
 func InitConn() {
 	dynoInstAirline := &dyno.Dyno[*Airline]{}
-	dynoInstAirline.Config("airline", "code", true, AirlineFactory, GetCacheMap)
+	dynoInstAirline.Config("airline", "code", true, ObjectFactory, GetCacheMap)
 	AdapterInst = dynoInstAirline
 }

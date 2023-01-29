@@ -250,11 +250,13 @@ func AddModelPicture(file multipart.File, modelCodeList []string) ([]*Model, err
 	if err == nil {
 		if len(response.FileLocation) != 0 {
 			for _, code := range modelCodeList {
+				// Save model stub for the index.
 				modelInst = &Model{}
 				modelInst.Code = code
 				modelInst.Picture = response.FileLocation
 				modelInst.Put()
 
+				//Append the image to the actual model objects (in memory only)
 				modelInst, intlErr = GetByCode(code)
 				if intlErr == nil {
 					modelInst.PictureList = append(modelInst.PictureList, response.FileLocation)
