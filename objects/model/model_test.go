@@ -9,6 +9,12 @@ import (
 	"colmanback/objects/modelmake"
 	"colmanback/test_util"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/png"
+	"io"
+	"mime/multipart"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -128,6 +134,74 @@ func testTearDown(t *testing.T) {
 	t.Log("Teardown completed.")
 }
 
+func createImage() image.Image {
+	width := 200
+	height := 100
+
+	upLeft := image.Point{0, 0}
+	lowRight := image.Point{width, height}
+
+	img := image.NewRGBA(image.Rectangle{upLeft, lowRight})
+
+	// Colors are defined by Red, Green, Blue, Alpha uint8 values.
+	cyan := color.RGBA{100, 200, 200, 0xff}
+
+	// Set color for each pixel.
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			switch {
+			case x < width/2 && y < height/2: // upper left quadrant
+				img.Set(x, y, cyan)
+			case x >= width/2 && y >= height/2: // lower right quadrant
+				img.Set(x, y, color.White)
+			default:
+				// Use zero value.
+			}
+		}
+	}
+
+	return img
+}
+
+func testFile(t *testing.T, code string) {
+	pipeRead, pipeWrite := io.Pipe()
+	writer := multipart.NewWriter(pipeWrite)
+
+	go func() {
+		defer writer.Close()
+
+		part, _ := writer.CreateFormFile("image", "imagename.png")
+		img := createImage()
+
+		err := png.Encode(part, img)
+		if err != nil {
+			t.Errorf("An error occurred encoding the image: %v", err)
+		}
+	}()
+
+	request := httptest.NewRequest("POST", "/", pipeRead)
+	request.Header.Add("Content-Type", writer.FormDataContentType())
+
+	imageFile, _, _ := request.FormFile("image")
+
+	if imageFile == nil {
+		t.Errorf("The image file is NIL!")
+	} else {
+		codeArr := []string{code}
+		modelInstList, modelErr := AddModelPicture(imageFile, codeArr)
+		if modelErr != nil {
+			t.Errorf("An error has been returned by the AddMOdelPicture method: %v", modelErr)
+		} else if modelInstList == nil {
+			t.Errorf("The model list returned by AddModelPicture has come back empty.")
+		} else {
+			lenList := len(modelInstList)
+			if lenList != 1 {
+				t.Errorf("The length of the modelInstList is not as expected: %d", lenList)
+			}
+		}
+	}
+}
+
 func TestModel(t *testing.T) {
 	if AdapterInst == nil {
 		testSetup(t)
@@ -171,6 +245,8 @@ func TestModel(t *testing.T) {
 		t.Errorf("Error in get after updating airline\n")
 	}
 	test_util.CheckField(t, "reg", regNewConst, modelUpdtInst.Reg)
+
+	testFile(t, objectInstLoad.Code)
 
 	t.Log("Delete and check it's gone!")
 	modelUpdtInst.Delete()

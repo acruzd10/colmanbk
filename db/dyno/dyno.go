@@ -323,7 +323,7 @@ func (dynoInst *Dyno[K]) PutObject(objectInst K) error {
 
 	if dynoInst.sortName != "" {
 		var sortAttribute = dynamodb.AttributeValue{}
-		sortAttribute.S = aws.String(objectInst.CodeValue())
+		sortAttribute.S = aws.String(objectInst.SortValue())
 		objectMarshalled[dynoInst.sortName] = &sortAttribute
 	}
 

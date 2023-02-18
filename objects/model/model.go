@@ -98,7 +98,8 @@ func (modelInst *Model) ToString() string {
 	  Notes .....: %s
 	  Is Cargo ..: %t
 	  Is Old Liv.: %t
-	  Is Spc Liv.: %t`,
+	  Is Spc Liv.: %t
+	  Picture ...: %s`,
 		modelInst.Code,
 		modelInst.ModelMake,
 		modelInst.Airline,
@@ -108,7 +109,8 @@ func (modelInst *Model) ToString() string {
 		modelInst.Notes,
 		modelInst.IsCargo,
 		modelInst.IsOldLivery,
-		modelInst.IsSpecialLivery)
+		modelInst.IsSpecialLivery,
+		modelInst.Picture)
 
 	return str
 }
@@ -240,7 +242,7 @@ func InitConn() {
 func AddModelPicture(file multipart.File, modelCodeList []string) ([]*Model, error) {
 	nowTime := time.Now().Format(time.RFC3339)
 	uuidName := uuid.New().String()
-	fileName := nowTime + "#" + uuidName
+	fileName := strings.Replace(nowTime, ":", "_", -1) + "-" + uuidName
 
 	var modelInst *Model
 	var intlErr error
@@ -253,7 +255,7 @@ func AddModelPicture(file multipart.File, modelCodeList []string) ([]*Model, err
 				// Save model stub for the index.
 				modelInst = &Model{}
 				modelInst.Code = code
-				modelInst.Picture = response.FileLocation
+				modelInst.Picture = fileName
 				modelInst.Put()
 
 				//Append the image to the actual model objects (in memory only)
