@@ -25,7 +25,7 @@ const (
 
 type Model struct {
 	Code    string `json:"code"`
-	Picture string `json:"picture",omitempty`
+	Picture string `json:"picture,omitempty"` //Used by the picture index stub only
 
 	//Foreign Keys
 	ModelMake string `json:"modelMake"`
@@ -39,7 +39,7 @@ type Model struct {
 	IsCargo         bool               `json:"isCargo"`
 	IsOldLivery     bool               `json:"isOldLivery"`
 	IsSpecialLivery bool               `json:"isSpecialLivery"`
-	PictureList     []string           `json:"pictureList,omitempty"`
+	PictureList     []string           `json:"pictureList,omitempty"` //Used by the actual model instances
 
 	//Reference Instances
 	ModelMakeInst *modelmake.ModelMake `json:"modelMakeDetails,omitempty"`
@@ -99,7 +99,8 @@ func (modelInst *Model) ToString() string {
 	  Is Cargo ..: %t
 	  Is Old Liv.: %t
 	  Is Spc Liv.: %t
-	  Picture ...: %s`,
+	  Picture ...: %s
+	  PictureList: %v`,
 		modelInst.Code,
 		modelInst.ModelMake,
 		modelInst.Airline,
@@ -110,7 +111,9 @@ func (modelInst *Model) ToString() string {
 		modelInst.IsCargo,
 		modelInst.IsOldLivery,
 		modelInst.IsSpecialLivery,
-		modelInst.Picture)
+		modelInst.Picture,
+		modelInst.PictureList,
+	)
 
 	return str
 }
@@ -167,6 +170,11 @@ func (modelInst *Model) Delete() {
 	var err error
 
 	if len(modelInst.Picture) == 0 {
+		if modelInst.PictureList != nil && len(modelInst.PictureList) > 0 {
+			for _, picture := range modelInst.PictureList {
+				AdapterInst.DeleteObjectByCodeAndSort(modelInst.CodeValue(), picture)
+			}
+		}
 		err = AdapterInst.DeleteObject(modelInst)
 	} else {
 		err = AdapterInst.DeleteObjectByCodeAndSort(modelInst.Code, modelInst.Picture)
@@ -179,22 +187,27 @@ func (modelInst *Model) Delete() {
 
 //----------------------------------------------------------------------------------------
 func (modelInst *Model) Put() {
-	var modelInstPut Model = *modelInst
+	airlineInst := modelInst.AirlineInst
+	airplaneInst := modelInst.AirplaneInst
+	modelMakeInst := modelInst.ModelMakeInst
 
 	//Ensure that redundant ref info is not persisted.
-	modelInstPut.AirlineInst = nil
-	modelInstPut.AirplaneInst = nil
-	modelInstPut.ModelMakeInst = nil
+	modelInst.AirlineInst = nil
+	modelInst.AirplaneInst = nil
+	modelInst.ModelMakeInst = nil
 
-	if len(modelInstPut.Code) == 0 {
-		modelInstPut.makeCode()
-		modelInst.Code = modelInstPut.Code
+	if len(modelInst.Code) == 0 {
+		modelInst.makeCode()
 	}
 
-	err := AdapterInst.PutObject(&modelInstPut)
+	err := AdapterInst.PutObject(modelInst)
 	if err != nil {
 		log.Fatalf("An error has occurred while putting model with code %s. Error: %v\n", modelInst.Code, err)
 	}
+
+	modelInst.AirlineInst = airlineInst
+	modelInst.AirplaneInst = airplaneInst
+	modelInst.ModelMakeInst = modelMakeInst
 }
 
 //----------------------------------------------------------------------------------------
@@ -261,7 +274,7 @@ func AddModelPicture(file multipart.File, modelCodeList []string) ([]*Model, err
 				//Append the image to the actual model objects (in memory only)
 				modelInst, intlErr = GetByCode(code)
 				if intlErr == nil {
-					modelInst.PictureList = append(modelInst.PictureList, response.FileLocation)
+					modelInst.PictureList = append(modelInst.PictureList, fileName)
 					modelList = append(modelList, modelInst)
 				}
 			}

@@ -21,6 +21,7 @@ type Dyno[K objects.Object] struct {
 	tableName   string
 	codeName    string
 	sortName    string
+	sortGSIName string
 	keepCache   bool
 	constructor func() K
 	cacheMap    func([]K) []db.CacheMapElement
@@ -60,6 +61,44 @@ func (dynoInst *Dyno[K]) getObjectListFromDB() ([]K, error) {
 	}
 
 	return objectList, nil
+}
+
+//----------------------------------------------------------------------------------------
+func (dynoInst *Dyno[K]) getObjectListBySortFromDB(sortValue string) ([]K, error) {
+	var input *dynamodb.QueryInput
+	var objectList []K
+	var retErr error
+
+	if dynoInst.sortName == "" || dynoInst.sortGSIName == "" {
+		return nil, fmt.Errorf("adapter does not have a configured sortName / sortGSIName %v", dynoInst)
+	}
+
+	input = &dynamodb.QueryInput{
+		TableName: aws.String(dynoInst.tableName),
+		IndexName: aws.String(dynoInst.sortGSIName),
+		KeyConditions: map[string]*dynamodb.Condition{
+			"picture": {
+				ComparisonOperator: aws.String("EQ"),
+				AttributeValueList: []*dynamodb.AttributeValue{
+					{
+						S: aws.String(sortValue),
+					},
+				},
+			},
+		},
+	}
+
+	result, err := Conn.Query(input)
+	if err == nil {
+		errUnmarshal := dynamodbattribute.UnmarshalListOfMaps(result.Items, objectList)
+		if errUnmarshal != nil {
+			retErr = errUnmarshal
+		}
+	} else {
+		retErr = err
+	}
+
+	return objectList, retErr
 }
 
 //----------------------------------------------------------------------------------------
@@ -165,7 +204,7 @@ func (dynoInst *Dyno[K]) DeleteObjectByCodeAndSort(codeValue string, sortValue s
 		},
 	}
 
-	if dynoInst.sortName != "" {
+	if dynoInst.sortName != "" && sortValue != "" {
 		var sortAttribute = dynamodb.AttributeValue{}
 		sortAttribute.S = aws.String(sortValue)
 		keyMap[dynoInst.sortName] = &sortAttribute
@@ -253,6 +292,11 @@ func (dynoInst *Dyno[K]) GetObjectList() ([]K, error) {
 	}
 
 	return objectList, err
+}
+
+//----------------------------------------------------------------------------------------
+func (dynoInst *Dyno[K]) GetObjectListBySort(sortValue string) ([]K, error) {
+	return dynoInst.getObjectListBySortFromDB(sortValue)
 }
 
 //----------------------------------------------------------------------------------------

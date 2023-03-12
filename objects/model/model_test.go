@@ -13,6 +13,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http/httptest"
 	"strings"
@@ -163,7 +164,7 @@ func createImage() image.Image {
 	return img
 }
 
-func testFile(t *testing.T, code string) {
+func testFile(t *testing.T, codeArr []string) {
 	pipeRead, pipeWrite := io.Pipe()
 	writer := multipart.NewWriter(pipeWrite)
 
@@ -187,19 +188,41 @@ func testFile(t *testing.T, code string) {
 	if imageFile == nil {
 		t.Errorf("The image file is NIL!")
 	} else {
-		codeArr := []string{code}
 		modelInstList, modelErr := AddModelPicture(imageFile, codeArr)
 		if modelErr != nil {
 			t.Errorf("An error has been returned by the AddMOdelPicture method: %v", modelErr)
 		} else if modelInstList == nil {
 			t.Errorf("The model list returned by AddModelPicture has come back empty.")
 		} else {
-			lenList := len(modelInstList)
-			if lenList != 1 {
-				t.Errorf("The length of the modelInstList is not as expected: %d", lenList)
+			modelInstList, modelErr = AddModelPicture(imageFile, codeArr)
+			if modelErr != nil {
+				t.Errorf("The AddModelPicture returned an error: %v", modelErr)
+			} else {
+				lenList := len(modelInstList)
+				if lenList != len(codeArr) {
+					t.Errorf("The length of the modelInstList is not as expected: %d", lenList)
+				} else {
+					log.Printf("Model Retrieved: \n%v", modelInstList)
+				}
 			}
 		}
 	}
+}
+
+func createObjectInst(reg string) *Model {
+	objectInst := ObjectFactory()
+
+	objectInst.Airline = airlineConst
+	objectInst.Airplane = airplaneConst
+	objectInst.ModelMake = modelMakeConst
+	objectInst.Scale = scaleConst
+	objectInst.Reg = reg
+	objectInst.Notes = notesConst
+	objectInst.IsCargo = isCargoConst
+	objectInst.IsOldLivery = isOldLiveryConst
+	objectInst.IsSpecialLivery = isSpecialLiveryConst
+
+	return objectInst
 }
 
 func TestModel(t *testing.T) {
@@ -208,18 +231,8 @@ func TestModel(t *testing.T) {
 	}
 
 	//Create airline from JSON
-	objectInst := ObjectFactory()
+	objectInst := createObjectInst(regConst)
 	objectInstLoad := ObjectFactory()
-
-	objectInst.Airline = airlineConst
-	objectInst.Airplane = airplaneConst
-	objectInst.ModelMake = modelMakeConst
-	objectInst.Scale = scaleConst
-	objectInst.Reg = regConst
-	objectInst.Notes = notesConst
-	objectInst.IsCargo = isCargoConst
-	objectInst.IsOldLivery = isOldLiveryConst
-	objectInst.IsSpecialLivery = isSpecialLiveryConst
 
 	jsonString, _ := json.MarshalIndent(&objectInst, " ", " ")
 	objectInstLoad.FromJson([]byte(jsonString))
@@ -246,11 +259,24 @@ func TestModel(t *testing.T) {
 	}
 	test_util.CheckField(t, "reg", regNewConst, modelUpdtInst.Reg)
 
-	testFile(t, objectInstLoad.Code)
+	t.Log("Testing pic upload")
+	objectInstSnd := createObjectInst(regConst + "2")
+	objectInstSnd.Put()
+	objectInstSndCode := objectInstSnd.Code
+	testFile(t, []string{objectInstLoad.Code, objectInstSnd.Code})
 
 	t.Log("Delete and check it's gone!")
+	t.Logf("For model with code %s, picture %s, pictureList %v\n", modelUpdtInst.Code, modelUpdtInst.Picture, modelUpdtInst.PictureList)
 	modelUpdtInst.Delete()
 	modelEmptyInst, getEmptyErr := GetByCode(objectInstLoad.Code)
+	if getEmptyErr == nil {
+		t.Errorf("Error for unexistent object not produced when expected. Perhaps the object still exists?\n")
+	}
+	test_util.CheckField(t, "reg", "", modelEmptyInst.Reg)
+
+	t.Logf("For model with code %s, picture %s, pictureList %v\n", objectInstSnd.Code, objectInstSnd.Picture, objectInstSnd.PictureList)
+	objectInstSnd.Delete()
+	modelEmptyInst, getEmptyErr = GetByCode(objectInstSndCode)
 	if getEmptyErr == nil {
 		t.Errorf("Error for unexistent object not produced when expected. Perhaps the object still exists?\n")
 	}
