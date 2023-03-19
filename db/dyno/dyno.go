@@ -90,7 +90,7 @@ func (dynoInst *Dyno[K]) getObjectListBySortFromDB(sortValue string) ([]K, error
 
 	result, err := Conn.Query(input)
 	if err == nil {
-		errUnmarshal := dynamodbattribute.UnmarshalListOfMaps(result.Items, objectList)
+		errUnmarshal := dynamodbattribute.UnmarshalListOfMaps(result.Items, &objectList)
 		if errUnmarshal != nil {
 			retErr = errUnmarshal
 		}
@@ -194,6 +194,11 @@ func (dynoInst *Dyno[K]) SetSortName(sortName string) {
 	} else {
 		dynoInst.sortName = sortName
 	}
+}
+
+//----------------------------------------------------------------------------------------
+func (dynoInst *Dyno[K]) SetSortGSIName(sortGSIName string) {
+	dynoInst.sortGSIName = sortGSIName
 }
 
 //----------------------------------------------------------------------------------------

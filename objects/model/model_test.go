@@ -164,9 +164,22 @@ func createImage() image.Image {
 	return img
 }
 
-func testFile(t *testing.T, codeArr []string) {
+func checkImageInModel(t *testing.T, modelInstList []*Model, expectedListCount int, expectedImageCount int) {
+	if len(modelInstList) != expectedListCount {
+		t.Errorf("The list of models for which the picture was added has not been successfully retrieved.")
+	} else {
+		for _, modelInst := range modelInstList {
+			if modelInst.PictureList == nil || len(modelInst.PictureList) != expectedImageCount {
+				t.Errorf("The number of images for model with code %s is not correct. Expected %d but got %d", modelInst.CodeValue(), expectedImageCount, len(modelInst.PictureList))
+			}
+		}
+	}
+}
+
+func testFile(t *testing.T, codeArr []string) string {
 	pipeRead, pipeWrite := io.Pipe()
 	writer := multipart.NewWriter(pipeWrite)
+	var filename string
 
 	go func() {
 		defer writer.Close()
@@ -194,6 +207,9 @@ func testFile(t *testing.T, codeArr []string) {
 		} else if modelInstList == nil {
 			t.Errorf("The model list returned by AddModelPicture has come back empty.")
 		} else {
+			checkImageInModel(t, modelInstList, 2, 1)
+
+			// Add again to simulate a different image.
 			modelInstList, modelErr = AddModelPicture(imageFile, codeArr)
 			if modelErr != nil {
 				t.Errorf("The AddModelPicture returned an error: %v", modelErr)
@@ -203,10 +219,17 @@ func testFile(t *testing.T, codeArr []string) {
 					t.Errorf("The length of the modelInstList is not as expected: %d", lenList)
 				} else {
 					log.Printf("Model Retrieved: \n%v", modelInstList)
+					checkImageInModel(t, modelInstList, 2, 2)
+
+					if len(modelInstList[0].PictureList) > 0 {
+						filename = modelInstList[0].PictureList[0]
+					}
 				}
 			}
 		}
 	}
+
+	return filename
 }
 
 func createObjectInst(reg string) *Model {
@@ -263,7 +286,17 @@ func TestModel(t *testing.T) {
 	objectInstSnd := createObjectInst(regConst + "2")
 	objectInstSnd.Put()
 	objectInstSndCode := objectInstSnd.Code
-	testFile(t, []string{objectInstLoad.Code, objectInstSnd.Code})
+	filename := testFile(t, []string{objectInstLoad.Code, objectInstSnd.Code})
+
+	t.Log("Check that the picture is linked to the two models.")
+	objectInstListFromFile, fromFileErr := AdapterInst.GetObjectListBySort(filename)
+	if fromFileErr != nil {
+		t.Errorf("The model list cannot be retrieved for image %s. Error: %v", filename, fromFileErr)
+	} else if objectInstListFromFile == nil {
+		t.Errorf("The model list is empty for image %s. Not as expected...", filename)
+	} else if len(objectInstListFromFile) != 2 {
+		t.Errorf("The model list has the wrong number of items. Expected 2 but got %d", len(objectInstListFromFile))
+	}
 
 	t.Log("Delete and check it's gone!")
 	t.Logf("For model with code %s, picture %s, pictureList %v\n", modelUpdtInst.Code, modelUpdtInst.Picture, modelUpdtInst.PictureList)

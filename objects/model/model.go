@@ -243,6 +243,7 @@ func GetByCode(code string) (*Model, error) {
 func InitConn() {
 	dynoInstModel := &dyno.Dyno[*Model]{}
 	dynoInstModel.SetSortName("picture")
+	dynoInstModel.SetSortGSIName("picture-code-index")
 	dynoInstModel.Config("model", "code", true, ObjectFactory, nil)
 	AdapterInst = dynoInstModel
 
@@ -286,9 +287,23 @@ func AddModelPicture(file multipart.File, modelCodeList []string) ([]*Model, err
 	return modelList, err
 }
 
-/*
+//----------------------------------------------------------------------------------------
+func GetModelByPicture(filename string) ([]*Model, error) {
+	objectList, err := AdapterInst.GetObjectListBySort(filename)
+
+	if err != nil {
+		log.Printf("Error whilst retrieving list of models for picture %s\n. Error %v", filename, err)
+	}
+
+	return objectList, err
+}
+
 //----------------------------------------------------------------------------------------
 func DeleteModelPicture(fileName string) ([]*Model, error) {
-
+	return nil, nil
 }
-*/
+
+//----------------------------------------------------------------------------------------
+func RemoveModelPicture(filename string, modelCode string) ([]*Model, error) {
+	return nil, nil
+}

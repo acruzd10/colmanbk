@@ -30,6 +30,7 @@ type Adapter[K objects.Object] interface {
 	GetObjectList() ([]K, error)
 	GetObjectByCode(codeValue string) (K, error)
 	GetObjectByCodeJSON(codeValue string) ([]byte, error)
+	GetObjectListBySort(sortValue string) ([]K, error)
 	GetObjectListJSON() ([]byte, error)
 	GetSortKeyList(codeValue string) ([]string, error)
 	PutObject(objectInst K) error
