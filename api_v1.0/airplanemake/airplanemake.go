@@ -21,7 +21,7 @@ var apiInst api_util.GenAPI[*airplanemake.AirplaneMake]
 func InitRouter(router *mux.Router) {
 	subRouter := router.PathPrefix(ApiURL).Subrouter()
 
-	subRouter.HandleFunc(BaseURL, apiInst.Get).Methods(http.MethodGet)
+	subRouter.HandleFunc(BaseURL, apiInst.GetList).Methods(http.MethodGet)
 	subRouter.HandleFunc(BaseURL, apiInst.Put).Methods(http.MethodPut)
 	subRouter.HandleFunc(ResourceURL, apiInst.Get).Methods(http.MethodGet)
 	subRouter.HandleFunc(ResourceURL, apiInst.Delete).Methods(http.MethodDelete)

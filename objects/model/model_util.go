@@ -58,6 +58,7 @@ func AddModelPicture(file multipart.File, modelCodeList []string) ([]*Model, err
 	var intlErr error
 	modelList := []*Model{}
 
+	//TODO: split the DB add and the file add to enable tagging after add.
 	response, err := FileInst.AddFile(fileName, file)
 	if err == nil {
 		if len(response.FileLocation) != 0 {

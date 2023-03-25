@@ -22,38 +22,48 @@ type GenAPI[K objects.Object] struct {
 	ApiURL   string
 	BaseURL  string
 
-	Constructor        func() K
-	GetObjectByCode    func(objectID string) (K, error)
-	GetObjectList      func() ([]K, error)
-	DeleteObjectByCode func(objectID string) error
+	Constructor         func() K
+	GetObjectByCode     func(objectID string) (K, error)
+	GetObjectList       func() ([]K, error)
+	GetObjectListByCode func(objectID string) ([]K, error)
+	DeleteObjectByCode  func(objectID string) error
 }
 
 //----------------------------------------------------------------------------------------
 func (apiInst *GenAPI[K]) Get(writer http.ResponseWriter, request *http.Request) {
-	var concreteObjectList []objects.Object
-
 	SetupCORSResponse(&writer)
 
 	pathParams := mux.Vars(request)
 	if objectID, ok := pathParams[apiInst.ObjectID]; ok {
 		objectInst, getErr := apiInst.GetObjectByCode(objectID)
 		if getErr == nil && objectInst.CodeValue() != "" {
-			objectInst.WriteObject(writer, request)
+			WriteObject(objectInst, writer, request)
 		} else {
 			WriteMsg(&writer, http.StatusNotFound, fmt.Sprintf("%s with code %s not found", apiInst.ObjectID, objectID))
 		}
 	} else {
-		objectListInst, getListErr := apiInst.GetObjectList()
+		WriteMsg(&writer, http.StatusNotImplemented, "This kind of get is not supported without parameters.")
+	}
+}
 
-		if getListErr == nil {
-			for _, objectInst := range objectListInst {
-				concreteObjectList = append(concreteObjectList, objectInst)
-			}
-		} else {
-			WriteMsg(&writer, http.StatusInternalServerError, fmt.Sprintf("internal server error: %v", getListErr))
-		}
+//----------------------------------------------------------------------------------------
+func (apiInst *GenAPI[K]) GetList(writer http.ResponseWriter, request *http.Request) {
+	var objectInstList []K
+	var getErr error
 
-		WriteObjectList(concreteObjectList, writer, request)
+	SetupCORSResponse(&writer)
+
+	pathParams := mux.Vars(request)
+	if objectID, ok := pathParams[apiInst.ObjectID]; ok {
+		objectInstList, getErr = apiInst.GetObjectListByCode(objectID)
+	} else {
+		objectInstList, getErr = apiInst.GetObjectList()
+	}
+
+	if getErr == nil {
+		apiInst.WriteObjectList(objectInstList, writer, request)
+	} else {
+		WriteMsg(&writer, http.StatusInternalServerError, fmt.Sprintf("internal server error: %v", getErr))
 	}
 }
 
@@ -84,6 +94,17 @@ func (apiInst *GenAPI[K]) Delete(writer http.ResponseWriter, request *http.Reque
 }
 
 //----------------------------------------------------------------------------------------
+func (apiInst *GenAPI[K]) WriteObjectList(objectInstList []K, writer http.ResponseWriter, request *http.Request) {
+	var concreteObjectList []objects.Object
+
+	for _, objectInst := range objectInstList {
+		concreteObjectList = append(concreteObjectList, objectInst)
+	}
+
+	WriteObjectList(concreteObjectList, writer, request)
+}
+
+//----------------------------------------------------------------------------------------
 func SetupCORSResponse(writer *http.ResponseWriter) {
 	(*writer).Header().Set("Access-Control-Allow-Origin", "*")
 	(*writer).Header().Set("Access-Control-Allow-Methods", "POST, GET, PUT, DELETE, OPTIONS")
@@ -106,7 +127,7 @@ func WriteObject(objectInst objects.Object, writer http.ResponseWriter, request 
 	out, err := json.MarshalIndent(objectInst, db.JSON_PREFIX, db.JSON_INDENT)
 
 	if err != nil {
-		log.Panicf("Write Object failed for airline: %s\n", objectInst.ToString())
+		log.Panicf("Write Object failed for instance: %s\n", objectInst.ToString())
 	}
 
 	SetupCORSResponse(&writer)
