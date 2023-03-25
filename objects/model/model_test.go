@@ -289,7 +289,7 @@ func TestModel(t *testing.T) {
 	filename := testFile(t, []string{objectInstLoad.Code, objectInstSnd.Code})
 
 	t.Log("Check that the picture is linked to the two models.")
-	objectInstListFromFile, fromFileErr := AdapterInst.GetObjectListBySort(filename)
+	objectInstListFromFile, fromFileErr := GetModelByPicture(filename)
 	if fromFileErr != nil {
 		t.Errorf("The model list cannot be retrieved for image %s. Error: %v", filename, fromFileErr)
 	} else if objectInstListFromFile == nil {
@@ -298,7 +298,30 @@ func TestModel(t *testing.T) {
 		t.Errorf("The model list has the wrong number of items. Expected 2 but got %d", len(objectInstListFromFile))
 	}
 
-	t.Log("Delete and check it's gone!")
+	if len(objectInstListFromFile) > 0 {
+		t.Log("Step: Check that a picture can be removed from a single model")
+		singlePicModelInst, removeErr := RemoveModelPicture(filename, objectInstListFromFile[0].CodeValue())
+		if removeErr == nil {
+			if len(singlePicModelInst.PictureList) != 1 {
+				t.Errorf("The model with code %s has an unexpected number of pictures in its list, which is %v", singlePicModelInst.CodeValue(), singlePicModelInst.PictureList)
+			} else {
+				objectInstListFromFile, fromFileErr = GetModelByPicture(filename)
+				if fromFileErr != nil {
+					t.Errorf("The model list cannot be retrieved for image %s after removing pic from %s. Error: %v", filename, singlePicModelInst.CodeValue(), fromFileErr)
+				} else {
+					if len(objectInstListFromFile) != 1 {
+						t.Errorf("The list of models has the wrong number of items. List: %v", objectInstListFromFile)
+					} else if objectInstListFromFile[0].CodeValue() == singlePicModelInst.CodeValue() {
+						t.Errorf("The retrieved model is wrong. Expected %s but got %s", singlePicModelInst.CodeValue(), objectInstListFromFile[0].CodeValue())
+					}
+				}
+			}
+		} else {
+			t.Errorf("There was an error whilst trying to delete picture %s from model with code %s. Error: %v", filename, singlePicModelInst.CodeValue(), removeErr)
+		}
+	}
+
+	t.Log("Step: Delete and check it's gone!")
 	t.Logf("For model with code %s, picture %s, pictureList %v\n", modelUpdtInst.Code, modelUpdtInst.Picture, modelUpdtInst.PictureList)
 	modelUpdtInst.Delete()
 	modelEmptyInst, getEmptyErr := GetByCode(objectInstLoad.Code)

@@ -67,7 +67,10 @@ func (dynoInst *Dyno[K]) getObjectListFromDB() ([]K, error) {
 func (dynoInst *Dyno[K]) getObjectListBySortFromDB(sortValue string) ([]K, error) {
 	var input *dynamodb.QueryInput
 	var objectList []K
+	var returnObjectList []K
+	var returnObjectInst K
 	var retErr error
+	var instErr error
 
 	if dynoInst.sortName == "" || dynoInst.sortGSIName == "" {
 		return nil, fmt.Errorf("adapter does not have a configured sortName / sortGSIName %v", dynoInst)
@@ -93,12 +96,22 @@ func (dynoInst *Dyno[K]) getObjectListBySortFromDB(sortValue string) ([]K, error
 		errUnmarshal := dynamodbattribute.UnmarshalListOfMaps(result.Items, &objectList)
 		if errUnmarshal != nil {
 			retErr = errUnmarshal
+		} else {
+			// Turn GSI object stubs into actual objects.
+			for _, objectInst := range objectList {
+				returnObjectInst, instErr = dynoInst.GetObjectByCode(objectInst.CodeValue())
+				if instErr == nil {
+					returnObjectList = append(returnObjectList, returnObjectInst)
+				} else {
+					log.Printf("An object instance could not be retrieved for code %s. Error %v", objectInst.CodeValue(), instErr)
+				}
+			}
 		}
 	} else {
 		retErr = err
 	}
 
-	return objectList, retErr
+	return returnObjectList, retErr
 }
 
 //----------------------------------------------------------------------------------------

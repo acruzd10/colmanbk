@@ -3,7 +3,6 @@ package model
 import (
 	"colmanback/api_util"
 	"colmanback/db"
-	"colmanback/db/dyno"
 	"colmanback/db/s3"
 	"colmanback/objects"
 	"colmanback/objects/airline"
@@ -11,12 +10,8 @@ import (
 	"colmanback/objects/modelmake"
 	"fmt"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"strings"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -213,97 +208,4 @@ func (modelInst *Model) Put() {
 //----------------------------------------------------------------------------------------
 func (airlineInst *Model) WriteObject(writer http.ResponseWriter, request *http.Request) {
 	api_util.WriteObject(airlineInst, writer, request)
-}
-
-//----------------------------------------------------------------------------------------
-func GetList() ([]*Model, error) {
-	objectList, err := AdapterInst.GetObjectList()
-
-	if err == nil {
-		for index, objectInst := range objectList {
-			objectInst.InitRefObjs()
-			objectList[index] = objectInst
-		}
-	}
-
-	return objectList, err
-}
-
-//----------------------------------------------------------------------------------------
-func GetByCode(code string) (*Model, error) {
-	objectInst, err := AdapterInst.GetObjectByCode(code)
-	if err == nil {
-		objectInst.InitRefObjs()
-	}
-
-	return objectInst, err
-}
-
-//----------------------------------------------------------------------------------------
-func InitConn() {
-	dynoInstModel := &dyno.Dyno[*Model]{}
-	dynoInstModel.SetSortName("picture")
-	dynoInstModel.SetSortGSIName("picture-code-index")
-	dynoInstModel.Config("model", "code", true, ObjectFactory, nil)
-	AdapterInst = dynoInstModel
-
-	fileInstModel := &s3.S3Adapter{}
-	fileInstModel.Config("colman-pics", 1000)
-	FileInst = fileInstModel
-}
-
-//----------------------------------------------------------------------------------------
-func AddModelPicture(file multipart.File, modelCodeList []string) ([]*Model, error) {
-	nowTime := time.Now().Format(time.RFC3339)
-	uuidName := uuid.New().String()
-	fileName := strings.Replace(nowTime, ":", "_", -1) + "-" + uuidName
-
-	var modelInst *Model
-	var intlErr error
-	modelList := []*Model{}
-
-	response, err := FileInst.AddFile(fileName, file)
-	if err == nil {
-		if len(response.FileLocation) != 0 {
-			for _, code := range modelCodeList {
-				// Save model stub for the index.
-				modelInst = &Model{}
-				modelInst.Code = code
-				modelInst.Picture = fileName
-				modelInst.Put()
-
-				//Append the image to the actual model objects (in memory only)
-				modelInst, intlErr = GetByCode(code)
-				if intlErr == nil {
-					modelInst.PictureList = append(modelInst.PictureList, fileName)
-					modelList = append(modelList, modelInst)
-				}
-			}
-		}
-	} else {
-		log.Printf("Error whilst saving image for models %v. Error: %v", modelCodeList, err)
-	}
-
-	return modelList, err
-}
-
-//----------------------------------------------------------------------------------------
-func GetModelByPicture(filename string) ([]*Model, error) {
-	objectList, err := AdapterInst.GetObjectListBySort(filename)
-
-	if err != nil {
-		log.Printf("Error whilst retrieving list of models for picture %s\n. Error %v", filename, err)
-	}
-
-	return objectList, err
-}
-
-//----------------------------------------------------------------------------------------
-func DeleteModelPicture(fileName string) ([]*Model, error) {
-	return nil, nil
-}
-
-//----------------------------------------------------------------------------------------
-func RemoveModelPicture(filename string, modelCode string) ([]*Model, error) {
-	return nil, nil
 }
