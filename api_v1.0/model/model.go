@@ -4,6 +4,7 @@ import (
 	"colmanback/api_util"
 	"colmanback/objects"
 	"colmanback/objects/model"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,15 +22,27 @@ const (
 	PictureID     = "pictureID"
 	ListByPicture = "/list-by-picture/{" + PictureID + "}"
 	PutPicture    = "/add-picture"
+	TagPicture    = "/tag-picture"
+	UntagPicture  = "/untag-picture"
+	DeletePicture = "/delete-picture/{" + PictureID + "}"
 )
 
 var apiInst api_util.GenAPI[*model.Model]
 var apiInstListByPicture api_util.GenAPI[*model.Model]
 
 //----------------------------------------------------------------------------------------
-func handleAddModelPicture(writer http.ResponseWriter, request *http.Request) {
+func modelListToObjectList(modelList []*model.Model) []objects.Object {
 	var objectInstList []objects.Object
 
+	for _, modelInst := range modelList {
+		objectInstList = append(objectInstList, modelInst)
+	}
+
+	return objectInstList
+}
+
+//----------------------------------------------------------------------------------------
+func handleAddModelPicture(writer http.ResponseWriter, request *http.Request) {
 	modelCodeListStr := request.PostFormValue("modelList")
 	modelPicture, _, formErr := request.FormFile("picture")
 
@@ -37,11 +50,9 @@ func handleAddModelPicture(writer http.ResponseWriter, request *http.Request) {
 	if formErr == nil && len(modelCodeListStr) > 0 {
 		modelCodeList := strings.Split(modelCodeListStr, ",")
 		modelList, addErr := model.AddModelPicture(modelPicture, modelCodeList)
-		if addErr == nil {
-			for _, modelInst := range modelList {
-				objectInstList = append(objectInstList, modelInst)
-			}
 
+		if addErr == nil {
+			objectInstList := modelListToObjectList(modelList)
 			defer modelPicture.Close()
 			api_util.WriteObjectList(objectInstList, writer, request)
 		} else {
@@ -49,6 +60,45 @@ func handleAddModelPicture(writer http.ResponseWriter, request *http.Request) {
 		}
 	} else {
 		api_util.WriteMsg(&writer, http.StatusBadRequest, fmt.Sprintf("The request was malformed. Error: %v", formErr))
+	}
+}
+
+//----------------------------------------------------------------------------------------
+func handleTagModelPicture(writer http.ResponseWriter, request *http.Request) {
+	var objectInst *model.Model = &model.Model{}
+
+	api_util.SetupCORSResponse(&writer)
+	err := json.NewDecoder(request.Body).Decode(objectInst)
+
+	if err != nil {
+		writer.WriteHeader(http.StatusBadRequest)
+	}
+
+	modelList, tagErr := model.TagModelPicture(objectInst.Picture, objectInst.CodeList)
+	if tagErr != nil {
+		api_util.WriteMsg(&writer, http.StatusInternalServerError, fmt.Sprintf("An internal error has occurred. Error: %v", tagErr))
+	} else {
+		objectInstList := modelListToObjectList(modelList)
+		api_util.WriteObjectList(objectInstList, writer, request)
+	}
+}
+
+//----------------------------------------------------------------------------------------
+func handleUntagModelPicture(writer http.ResponseWriter, request *http.Request) {
+	var objectInst *model.Model = &model.Model{}
+
+	api_util.SetupCORSResponse(&writer)
+	err := json.NewDecoder(request.Body).Decode(objectInst)
+
+	if err != nil {
+		writer.WriteHeader(http.StatusBadRequest)
+	}
+
+	modelInst, tagErr := model.RemoveModelPicture(objectInst.Picture, objectInst.Code)
+	if tagErr != nil {
+		api_util.WriteMsg(&writer, http.StatusInternalServerError, fmt.Sprintf("An internal error has occurred. Error: %v", tagErr))
+	} else {
+		modelInst.WriteObject(writer, request)
 	}
 }
 
@@ -87,6 +137,21 @@ func initAddModelPicture(subRouter *mux.Router) {
 }
 
 //----------------------------------------------------------------------------------------
+func initTagModelPicture(subRouter *mux.Router) {
+	subRouter.HandleFunc(TagPicture, handleTagModelPicture).Methods(http.MethodPut)
+}
+
+//----------------------------------------------------------------------------------------
+func initUntagModelPicture(subRouter *mux.Router) {
+	subRouter.HandleFunc(TagPicture, handleUntagModelPicture).Methods(http.MethodPut)
+}
+
+//----------------------------------------------------------------------------------------
+func initDeleteModelPicture(subRouter *mux.Router) {
+	//TODO: fix this damn PICTURE API.
+}
+
+//----------------------------------------------------------------------------------------
 func InitRouter(router *mux.Router) {
 	subRouter := router.PathPrefix(ApiURL).Subrouter()
 
@@ -95,6 +160,8 @@ func InitRouter(router *mux.Router) {
 	//Model-specific APIs
 	initListByPicture(subRouter)
 	initAddModelPicture(subRouter)
+	initTagModelPicture(subRouter)
+	initUntagModelPicture(subRouter)
 
 	//TODO: add routes for the remaining methods.
 	//TODO: implement the damn test for MODEL!

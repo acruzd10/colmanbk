@@ -19,8 +19,9 @@ const (
 )
 
 type Model struct {
-	Code    string `json:"code"`
-	Picture string `json:"picture,omitempty"` //Used by the picture index stub only
+	Code     string   `json:"code"`
+	Picture  string   `json:"picture,omitempty"` //Used by the picture index stub only
+	CodeList []string `json:"codeList,omitempty"`
 
 	//Foreign Keys
 	ModelMake string `json:"modelMake"`
