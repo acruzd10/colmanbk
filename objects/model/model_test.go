@@ -232,7 +232,7 @@ func testFile(t *testing.T, codeArr []string) string {
 	return filename
 }
 
-func createObjectInst(reg string) *Model {
+func CreateObjectInst(reg string) *Model {
 	objectInst := ObjectFactory()
 
 	objectInst.Airline = airlineConst
@@ -254,7 +254,7 @@ func TestModel(t *testing.T) {
 	}
 
 	//Create airline from JSON
-	objectInst := createObjectInst(regConst)
+	objectInst := CreateObjectInst(regConst)
 	objectInstLoad := ObjectFactory()
 
 	jsonString, _ := json.MarshalIndent(&objectInst, " ", " ")
@@ -283,7 +283,7 @@ func TestModel(t *testing.T) {
 	test_util.CheckField(t, "reg", regNewConst, modelUpdtInst.Reg)
 
 	t.Log("Testing pic upload")
-	objectInstSnd := createObjectInst(regConst + "2")
+	objectInstSnd := CreateObjectInst(regConst + "2")
 	objectInstSnd.Put()
 	objectInstSndCode := objectInstSnd.Code
 	filename := testFile(t, []string{objectInstLoad.Code, objectInstSnd.Code})

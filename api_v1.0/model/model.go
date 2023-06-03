@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	// Standard model adapter constants
 	ObjectID    = "modelID"
 	ApiURL      = "/api/v1/model"
 	BaseURL     = ""
@@ -20,15 +21,40 @@ const (
 
 	// Model-specific constants
 	PictureID     = "pictureID"
-	ListByPicture = "/list-by-picture/{" + PictureID + "}"
-	PutPicture    = "/add-picture"
-	TagPicture    = "/tag-picture"
-	UntagPicture  = "/untag-picture"
-	DeletePicture = "/delete-picture/{" + PictureID + "}"
+	PutPicture    = "/picture/add"
+	ListByPicture = "/picture/{" + PictureID + "}/list-models"
+	TagPicture    = "/picture/{" + PictureID + "}/tag"
+	UntagPicture  = "/picture/{" + PictureID + "}/untag"
+	DeletePicture = "/picture/{" + PictureID + "}"
 )
 
 var apiInst api_util.GenAPI[*model.Model]
 var apiInstListByPicture api_util.GenAPI[*model.Model]
+
+//----------------------------------------------------------------------------------------
+func handlePictureCommand(writer http.ResponseWriter, request *http.Request, handler func(string, string) (*model.Model, error)) {
+	var objectInst *model.Model = &model.Model{}
+
+	api_util.SetupCORSResponse(&writer)
+	err := json.NewDecoder(request.Body).Decode(objectInst)
+
+	if err != nil {
+		writer.WriteHeader(http.StatusBadRequest)
+	}
+
+	requestVars := mux.Vars(request)
+
+	if picture, ok := requestVars[PictureID]; ok {
+		modelInst, tagErr := handler(picture, objectInst.Code)
+		if tagErr != nil {
+			api_util.WriteMsg(&writer, http.StatusInternalServerError, fmt.Sprintf("An internal error has occurred. Error: %v", tagErr))
+		} else {
+			modelInst.WriteObject(writer, request)
+		}
+	} else {
+		api_util.WriteMsg(&writer, http.StatusBadRequest, "The picture ID to be processed could not be found in the request.")
+	}
+}
 
 //----------------------------------------------------------------------------------------
 func modelListToObjectList(modelList []*model.Model) []objects.Object {
@@ -65,40 +91,30 @@ func handleAddModelPicture(writer http.ResponseWriter, request *http.Request) {
 
 //----------------------------------------------------------------------------------------
 func handleTagModelPicture(writer http.ResponseWriter, request *http.Request) {
-	var objectInst *model.Model = &model.Model{}
-
-	api_util.SetupCORSResponse(&writer)
-	err := json.NewDecoder(request.Body).Decode(objectInst)
-
-	if err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
-	}
-
-	modelList, tagErr := model.TagModelPicture(objectInst.Picture, objectInst.CodeList)
-	if tagErr != nil {
-		api_util.WriteMsg(&writer, http.StatusInternalServerError, fmt.Sprintf("An internal error has occurred. Error: %v", tagErr))
-	} else {
-		objectInstList := modelListToObjectList(modelList)
-		api_util.WriteObjectList(objectInstList, writer, request)
-	}
+	handlePictureCommand(writer, request, model.TagModelPicture)
 }
 
 //----------------------------------------------------------------------------------------
 func handleUntagModelPicture(writer http.ResponseWriter, request *http.Request) {
-	var objectInst *model.Model = &model.Model{}
+	handlePictureCommand(writer, request, model.RemoveModelPicture)
+}
 
+//----------------------------------------------------------------------------------------
+func handleDeleteModelPicture(writer http.ResponseWriter, request *http.Request) {
 	api_util.SetupCORSResponse(&writer)
-	err := json.NewDecoder(request.Body).Decode(objectInst)
 
-	if err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
-	}
+	requestVars := mux.Vars(request)
 
-	modelInst, tagErr := model.RemoveModelPicture(objectInst.Picture, objectInst.Code)
-	if tagErr != nil {
-		api_util.WriteMsg(&writer, http.StatusInternalServerError, fmt.Sprintf("An internal error has occurred. Error: %v", tagErr))
+	if picture, ok := requestVars[PictureID]; ok {
+		modelList, tagErr := model.DeleteModelPicture(picture)
+		if tagErr != nil {
+			api_util.WriteMsg(&writer, http.StatusInternalServerError, fmt.Sprintf("An internal error has occurred. Error: %v", tagErr))
+		} else {
+			objectInstList := modelListToObjectList(modelList)
+			api_util.WriteObjectList(objectInstList, writer, request)
+		}
 	} else {
-		modelInst.WriteObject(writer, request)
+		api_util.WriteMsg(&writer, http.StatusBadRequest, "The picture ID to be processed could not be found in the request.")
 	}
 }
 
@@ -148,20 +164,22 @@ func initUntagModelPicture(subRouter *mux.Router) {
 
 //----------------------------------------------------------------------------------------
 func initDeleteModelPicture(subRouter *mux.Router) {
-	//TODO: fix this damn PICTURE API.
+	subRouter.HandleFunc(DeletePicture, handleDeleteModelPicture).Methods(http.MethodDelete)
 }
 
 //----------------------------------------------------------------------------------------
 func InitRouter(router *mux.Router) {
 	subRouter := router.PathPrefix(ApiURL).Subrouter()
 
+	//Generic model API.
 	initBase(subRouter)
 
-	//Model-specific APIs
+	//Model-specific APIs.
 	initListByPicture(subRouter)
 	initAddModelPicture(subRouter)
 	initTagModelPicture(subRouter)
 	initUntagModelPicture(subRouter)
+	initDeleteModelPicture(subRouter)
 
 	//TODO: add routes for the remaining methods.
 	//TODO: implement the damn test for MODEL!

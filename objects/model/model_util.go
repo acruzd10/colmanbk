@@ -12,6 +12,33 @@ import (
 )
 
 //----------------------------------------------------------------------------------------
+func tagModelPicture(filename string, modelCodeList []string) ([]*Model, error) {
+	var modelInst *Model
+	var intlErr error
+	modelList := []*Model{}
+
+	for _, code := range modelCodeList {
+		// Save model stub for the index.
+		modelInst = &Model{}
+		modelInst.Code = code
+		modelInst.Picture = filename
+		modelInst.Put()
+
+		//Append the image to the actual model objects (in memory only)
+		modelInst, intlErr = GetByCode(code)
+		if intlErr == nil {
+			modelInst.PictureList = append(modelInst.PictureList, filename)
+			modelList = append(modelList, modelInst)
+		} else {
+			log.Printf("An error has occurred while tagging model with code %s for picture with filename %s. Error: %v", code, filename, intlErr)
+			return nil, intlErr
+		}
+	}
+
+	return modelList, nil
+}
+
+//----------------------------------------------------------------------------------------
 func chkModelCode(modelCodeList []string) []string {
 	var err error
 	var validModelCodeList []string
@@ -77,7 +104,7 @@ func AddModelPicture(file multipart.File, modelCodeList []string) ([]*Model, err
 		response, err := FileInst.AddFile(filename, file)
 		if err == nil {
 			if len(response.FileLocation) != 0 {
-				modelList, addErr = TagModelPicture(filename, validModelCodeList)
+				modelList, addErr = tagModelPicture(filename, validModelCodeList)
 			}
 		} else {
 			addErr = err
@@ -88,30 +115,15 @@ func AddModelPicture(file multipart.File, modelCodeList []string) ([]*Model, err
 }
 
 //----------------------------------------------------------------------------------------
-func TagModelPicture(filename string, modelCodeList []string) ([]*Model, error) {
-	var modelInst *Model
-	var intlErr error
-	modelList := []*Model{}
+func TagModelPicture(filename string, modelCode string) (*Model, error) {
+	var modelCodeList []string = []string{modelCode}
 
-	for _, code := range modelCodeList {
-		// Save model stub for the index.
-		modelInst = &Model{}
-		modelInst.Code = code
-		modelInst.Picture = filename
-		modelInst.Put()
-
-		//Append the image to the actual model objects (in memory only)
-		modelInst, intlErr = GetByCode(code)
-		if intlErr == nil {
-			modelInst.PictureList = append(modelInst.PictureList, filename)
-			modelList = append(modelList, modelInst)
-		} else {
-			log.Printf("An error has occurred while tagging model with code %s for picture with filename %s. Error: %v", code, filename, intlErr)
-			return nil, intlErr
-		}
+	modelList, tagErr := tagModelPicture(filename, modelCodeList)
+	if tagErr == nil && len(modelList) > 0 {
+		return modelList[0], nil
+	} else {
+		return nil, tagErr
 	}
-
-	return modelList, nil
 }
 
 //----------------------------------------------------------------------------------------
