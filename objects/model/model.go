@@ -183,6 +183,8 @@ func (modelInst *Model) Delete() {
 
 //----------------------------------------------------------------------------------------
 func (modelInst *Model) Put() {
+	var getErr error
+
 	airlineInst := modelInst.AirlineInst
 	airplaneInst := modelInst.AirplaneInst
 	modelMakeInst := modelInst.ModelMakeInst
@@ -201,12 +203,33 @@ func (modelInst *Model) Put() {
 		log.Fatalf("An error has occurred while putting model with code %s. Error: %v\n", modelInst.Code, err)
 	}
 
+	if airlineInst == nil && len(modelInst.Airline) > 0 {
+		airlineInst, getErr = airline.GetByCode(modelInst.Airline)
+		if getErr != nil {
+			log.Printf("Model has airline with code %s, but an attempt to retrieve an airline with that code produced error %v\n", modelInst.Airline, getErr)
+		}
+	}
+
+	if airplaneInst == nil && len(modelInst.Airplane) > 0 {
+		airplaneInst, getErr = airplane.GetByCode(modelInst.Airplane)
+		if getErr != nil {
+			log.Printf("Model has airplane with code %s, but an attempt to retrieve an airplane with that code produced error %v\n", modelInst.Airplane, getErr)
+		}
+	}
+
+	if modelMakeInst == nil && len(modelInst.ModelMake) > 0 {
+		modelMakeInst, getErr = modelmake.GetByCode(modelInst.ModelMake)
+		if getErr != nil {
+			log.Printf("Model has model make with code %s, but an attempt to retrieve an model make with that code produced error %v\n", modelInst.ModelMake, getErr)
+		}
+	}
+
 	modelInst.AirlineInst = airlineInst
 	modelInst.AirplaneInst = airplaneInst
 	modelInst.ModelMakeInst = modelMakeInst
 }
 
 //----------------------------------------------------------------------------------------
-func (airlineInst *Model) WriteObject(writer http.ResponseWriter, request *http.Request) {
-	api_util.WriteObject(airlineInst, writer, request)
+func (modelInst *Model) WriteObject(writer http.ResponseWriter, request *http.Request) {
+	api_util.WriteObject(modelInst, writer, request)
 }
