@@ -45,7 +45,7 @@ func (appInst *App) initConn() {
 
 //----------------------------------------------------------------------------------------
 func (appInst *App) initRoutes() *mux.Router {
-	router := mux.NewRouter()
+	router := mux.NewRouter().SkipClean(true).UseEncodedPath()
 
 	airlineapi.InitRouter(router)
 	airplanemakeapi.InitRouter(router)

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/gorilla/mux"
 )
@@ -35,11 +36,16 @@ func (apiInst *GenAPI[K]) Get(writer http.ResponseWriter, request *http.Request)
 
 	pathParams := mux.Vars(request)
 	if objectID, ok := pathParams[apiInst.ObjectID]; ok {
-		objectInst, getErr := apiInst.GetObjectByCode(objectID)
-		if getErr == nil && objectInst.CodeValue() != "" {
-			WriteObject(objectInst, writer, request)
+		objectIDUnscaped, unscapeError := url.QueryUnescape(objectID)
+		if unscapeError == nil {
+			objectInst, getErr := apiInst.GetObjectByCode(objectIDUnscaped)
+			if getErr == nil && objectInst.CodeValue() != "" {
+				WriteObject(objectInst, writer, request)
+			} else {
+				WriteMsg(&writer, http.StatusNotFound, fmt.Sprintf("%s with code %s not found", apiInst.ObjectID, objectIDUnscaped))
+			}
 		} else {
-			WriteMsg(&writer, http.StatusNotFound, fmt.Sprintf("%s with code %s not found", apiInst.ObjectID, objectID))
+			WriteMsg(&writer, http.StatusInternalServerError, fmt.Sprintf("Error %v", unscapeError))
 		}
 	} else {
 		WriteMsg(&writer, http.StatusNotImplemented, "This kind of get is not supported without parameters.")

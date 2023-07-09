@@ -15,8 +15,10 @@ import (
 	modelObject "colmanback/objects/model"
 	modelMakeObject "colmanback/objects/modelmake"
 	"colmanback/test_util"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -52,6 +54,14 @@ const (
 
 var router *mux.Router
 var modelCode string
+
+func boolToString(value bool) string {
+	if value {
+		return "true"
+	}
+
+	return "false"
+}
 
 func makeModelMakeInstance() modelMakeObject.ModelMake {
 	var objectInst modelMakeObject.ModelMake
@@ -172,8 +182,42 @@ func createModel(t *testing.T) {
 	}
 }
 
+func chkDefaultModelInst(t *testing.T, objectInst modelObject.Model, modelCodeLocal string) {
+	t.Logf("Checking model: %s", objectInst.ToString())
+
+	test_util.CheckField(t, "Airline", airlineCode, objectInst.Airline)
+	test_util.CheckField(t, "Airplane", airplaneCode, objectInst.Airplane)
+	test_util.CheckField(t, "isCargo", boolToString(modelIsCargo), boolToString(objectInst.IsCargo))
+	test_util.CheckField(t, "isOldLivery", boolToString(modelIsOldLivery), boolToString(objectInst.IsOldLivery))
+	test_util.CheckField(t, "isSpecialLivery", boolToString(modelIsSpecialLivery), boolToString(objectInst.IsSpecialLivery))
+	test_util.CheckField(t, "modelMake", modelMakeCode, objectInst.ModelMake)
+	test_util.CheckField(t, "reg", modelReg, objectInst.Reg)
+	test_util.CheckField(t, "scale", string(modelScale), string(objectInst.Scale))
+	test_util.CheckField(t, "code", modelCodeLocal, objectInst.Code)
+}
+
+func retrieveModel(t *testing.T) {
+	getURL := ApiURL + strings.Replace(ResourceURL, "{"+ObjectID+"}", url.QueryEscape(modelCode), 1)
+	var objectInst modelObject.Model
+
+	t.Logf("Checking URL: %s", getURL)
+	test_util.CheckExists(t, router, getURL, true)
+	req, err := http.NewRequest(http.MethodGet, getURL, nil)
+	if err == nil {
+		resp := test_util.ExecuteRequest(router, req)
+		unmarshallErr := json.Unmarshal(resp.Body.Bytes(), &objectInst)
+		if unmarshallErr == nil {
+			chkDefaultModelInst(t, objectInst, modelCode)
+		} else {
+			t.Errorf("An error has occurred whilst unmarshalling object. Error: %v\n", unmarshallErr)
+		}
+	} else {
+		t.Errorf("An error has occurred whist building get request. Error: %v\n", err)
+	}
+}
+
 func testSetup(t *testing.T) {
-	router = mux.NewRouter()
+	router = mux.NewRouter().SkipClean(true).UseEncodedPath()
 
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -190,6 +234,7 @@ func testSetup(t *testing.T) {
 	createAirplane(t)
 
 	createModel(t)
+	retrieveModel(t)
 }
 
 func testTearDown(t *testing.T) {

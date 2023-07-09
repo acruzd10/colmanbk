@@ -24,7 +24,7 @@ func CheckExists(t *testing.T, router *mux.Router, getURL string, expectExists b
 			}
 		} else {
 			if resp.Code != http.StatusOK {
-				t.Errorf("Object found when it wasn't expected. Response code: %d", resp.Code)
+				t.Errorf("Object not found when it was expected. Response code: %d", resp.Code)
 			}
 		}
 	}
