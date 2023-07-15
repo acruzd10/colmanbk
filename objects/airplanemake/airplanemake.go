@@ -4,15 +4,17 @@ import (
 	"colmanback/api_util"
 	"colmanback/db"
 	"colmanback/db/dyno"
+	"colmanback/objects/country"
 	"fmt"
 	"net/http"
 )
 
 type AirplaneMake struct {
-	Code         string `json:"code"`
-	Name         string `json:"name"`
-	Country      string `json:"country"`
-	Abbreviation string `json:"abbreviation"`
+	Code         string           `json:"code"`
+	Name         string           `json:"name"`
+	Abbreviation string           `json:"abbreviation"`
+	Country      string           `json:"country"`
+	CountryInst  *country.Country `json:"countryDetails,omitempty"`
 }
 
 var AdapterInst db.Adapter[*AirplaneMake]
@@ -60,7 +62,24 @@ func (airplaneMakeInst *AirplaneMake) WriteObject(writer http.ResponseWriter, re
 
 //----------------------------------------------------------------------------------------
 func (airplaneMakeInst *AirplaneMake) Put() {
+	countryInst := airplaneMakeInst.CountryInst
+
+	airplaneMakeInst.CountryInst = nil
 	AdapterInst.PutObject(airplaneMakeInst)
+
+	airplaneMakeInst.CountryInst = countryInst
+}
+
+//----------------------------------------------------------------------------------------
+func (airplaneMakeInst *AirplaneMake) InitRefObjs() {
+	var err error
+
+	if len(airplaneMakeInst.Country) != 0 {
+		airplaneMakeInst.CountryInst, err = country.GetCountryByISO(airplaneMakeInst.Country)
+		if err != nil {
+			panic(fmt.Sprintf("Error initialising country with code %s for model %s", airplaneMakeInst.Country, airplaneMakeInst.Code))
+		}
+	}
 }
 
 //----------------------------------------------------------------------------------------
@@ -94,7 +113,13 @@ func GetList() ([]*AirplaneMake, error) {
 
 //----------------------------------------------------------------------------------------
 func GetByCode(code string) (*AirplaneMake, error) {
-	return AdapterInst.GetObjectByCode(code)
+	airplaneMakeInst, err := AdapterInst.GetObjectByCode(code)
+
+	if airplaneMakeInst != nil {
+		airplaneMakeInst.InitRefObjs()
+	}
+
+	return airplaneMakeInst, err
 }
 
 //----------------------------------------------------------------------------------------

@@ -13,11 +13,12 @@ import (
 )
 
 type Airplane struct {
-	Code string `json:"code"`
-	Name string `json:"name"`
-	Iata string `json:"iata"`
-	Icao string `json:"icao"`
-	Make string `json:"make"`
+	Code     string                     `json:"code"`
+	Name     string                     `json:"name"`
+	Iata     string                     `json:"iata"`
+	Icao     string                     `json:"icao"`
+	Make     string                     `json:"make"`
+	MakeInst *airplanemake.AirplaneMake `json:"makeDetails,omitempty"`
 }
 
 var AdapterInst db.Adapter[*Airplane]
@@ -75,7 +76,12 @@ func GetCacheMap(airplaneList []*Airplane) []db.CacheMapElement {
 
 //----------------------------------------------------------------------------------------
 func (airplaneInst *Airplane) Put() {
+	makeInst := airplaneInst.MakeInst
+
+	airplaneInst.MakeInst = nil
 	AdapterInst.PutObject(airplaneInst)
+
+	airplaneInst.MakeInst = makeInst
 }
 
 //----------------------------------------------------------------------------------------
@@ -89,13 +95,31 @@ func (airplaneInst *Airplane) WriteObject(writer http.ResponseWriter, request *h
 }
 
 //----------------------------------------------------------------------------------------
+func (airplaneInst *Airplane) InitRefObjs() {
+	var err error
+
+	if len(airplaneInst.Make) != 0 {
+		airplaneInst.MakeInst, err = airplanemake.GetByCode(airplaneInst.Make)
+		if err != nil {
+			panic(fmt.Sprintf("Error initialising airplane make with code %s for airplane %s", airplaneInst.Make, airplaneInst.Code))
+		}
+	}
+}
+
+//----------------------------------------------------------------------------------------
 func GetList() ([]*Airplane, error) {
 	return AdapterInst.GetObjectList()
 }
 
 //----------------------------------------------------------------------------------------
 func GetByCode(code string) (*Airplane, error) {
-	return AdapterInst.GetObjectByCode(code)
+	airplaneInst, err := AdapterInst.GetObjectByCode(code)
+
+	if airplaneInst != nil {
+		airplaneInst.InitRefObjs()
+	}
+
+	return airplaneInst, err
 }
 
 //----------------------------------------------------------------------------------------

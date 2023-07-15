@@ -12,6 +12,7 @@ import (
 	airlineObject "colmanback/objects/airline"
 	airplaneObject "colmanback/objects/airplane"
 	airplaneMakeObject "colmanback/objects/airplanemake"
+	countryObject "colmanback/objects/country"
 	modelObject "colmanback/objects/model"
 	modelMakeObject "colmanback/objects/modelmake"
 	"colmanback/test_util"
@@ -226,6 +227,8 @@ func testSetup(t *testing.T) {
 	dyno.Conn = dynamodb.New(sess)
 
 	modelObject.InitConn()
+	countryObject.InitConn() //Needs explicit init because no country is being created.
+
 	InitRouter(router)
 
 	createModelMake(t)

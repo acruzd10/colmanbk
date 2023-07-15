@@ -17,12 +17,13 @@ const (
 )
 
 type Airline struct {
-	Code     string `json:"code"`
-	Name     string `json:"name"`
-	Iata     string `json:"iata"`
-	Icao     string `json:"icao"`
-	Callsign string `json:"callsign"`
-	Country  string `json:"country"`
+	Code        string           `json:"code"`
+	Name        string           `json:"name"`
+	Iata        string           `json:"iata"`
+	Icao        string           `json:"icao"`
+	Callsign    string           `json:"callsign"`
+	Country     string           `json:"country"`
+	CountryInst *country.Country `json:"countryDetails,omitempty"`
 }
 
 var AdapterInst db.Adapter[*Airline]
@@ -90,11 +91,16 @@ func (airlineInst *Airline) Delete() {
 
 //----------------------------------------------------------------------------------------
 func (airlineInst *Airline) Put() {
+	countryInst := airlineInst.CountryInst
+
 	if airlineInst.Code == "" {
 		airlineInst.makeCode()
 	}
 
+	airlineInst.CountryInst = nil
 	AdapterInst.PutObject(airlineInst)
+
+	airlineInst.CountryInst = countryInst
 }
 
 //----------------------------------------------------------------------------------------
@@ -102,6 +108,18 @@ func ObjectFactory() *Airline {
 	var airlineInst Airline = Airline{}
 
 	return &airlineInst
+}
+
+//----------------------------------------------------------------------------------------
+func (airlineInst *Airline) InitRefObjs() {
+	var err error
+
+	if len(airlineInst.Country) != 0 {
+		airlineInst.CountryInst, err = country.GetCountryByISO(airlineInst.Country)
+		if err != nil {
+			panic(fmt.Sprintf("Error initialising country with code %s for model %s", airlineInst.Country, airlineInst.Code))
+		}
+	}
 }
 
 //----------------------------------------------------------------------------------------
@@ -150,6 +168,10 @@ func GetByCode(code string) (*Airline, error) {
 		} else {
 			searchErr = apiErr
 		}
+	}
+
+	if airlineInst != nil {
+		airlineInst.InitRefObjs()
 	}
 
 	return airlineInst, searchErr
